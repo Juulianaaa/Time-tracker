@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>時間記錄</title>
+<style>
+/* ===== 自訂說明（改完存檔、重新整理網頁就會生效）=====
+   字體大小：改下面 html{font-size:16px} 的 16px（全站文字一起變大或變小）
+   背景顏色：改 --bg（整頁背景）、--surface（統計方塊、進度條底色）
+   文字顏色：改 --ink（主要文字）、--muted（次要灰色文字）
+   主題色：改 --accent（按鈕、進度條）
+   警示色：改 --danger（停止按鈕、刪除字樣、錯誤訊息）
+   分隔線：改 --line
+   顏色格式是 #RRGGBB，例如 #ffffff 是白色
+   ================================================= */
+:root{--bg:#fff;--surface:#eef2f5;--ink:#1f2933;--muted:#5f6b76;--line:#d9dee3;--accent:#2f6f8f;--danger:#b3412f}
+*{box-sizing:border-box}
+html{font-size:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 64px}
+h1,h2{font-size:1rem;font-weight:700;margin:0 0 12px}
+section{padding:20px 0;border-top:1px solid var(--line)}
+header{padding-bottom:12px}
+header h1{margin:0}
+.row{display:flex;gap:8px 12px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.between{justify-content:space-between}
+.muted{color:var(--muted)}
+input,select,button{font:inherit;color:inherit}
+input,select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff;min-width:0}
+input[type=number]{width:5.5rem}
+button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:8px 16px;cursor:pointer}
+button.stop{background:var(--danger);border-color:var(--danger)}
+button.ghost{background:#fff;color:var(--accent)}
+button.link{background:none;border:0;padding:0;color:var(--danger);text-decoration:underline}
+button:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.clock{font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.05em;min-width:5.5rem}
+.msg{min-height:1.6em;margin:0;color:var(--danger)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sum div{background:var(--surface);border-radius:6px;padding:10px 12px}
+.sum b{display:block}
+.subj{padding:12px 0;border-bottom:1px solid var(--line)}
+.pl{display:flex;justify-content:space-between;gap:8px;margin-top:6px}
+.bar{height:8px;background:var(--surface);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{display:grid;grid-template-columns:7.5rem 1fr auto;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+@media(max-width:480px){.sum{grid-template-columns:1fr}.hist li{grid-template-columns:1fr auto}.hist li span:first-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<main>
+<header class="row between"><h1 data-i18n="title"></h1><button id="lang" class="ghost"></button></header>
+<p id="msg" class="msg" role="status"></p>
+
+<section>
+<h2 data-i18n="timer"></h2>
+<div class="row"><select id="tSubject"></select></div>
+<div class="row"><span id="clock" class="clock">00:00:00</span><button id="toggle"></button></div>
+</section>
+
+<section>
+<h2 data-i18n="manual"></h2>
+<div class="row"><select id="mSubject"></select><input type="date" id="mDate"></div>
+<div class="row">
+<label><input type="number" id="mH" min="0" step="1" placeholder="0"> <span data-i18n="hours"></span></label>
+<label><input type="number" id="mM" min="0" step="1" placeholder="0"> <span data-i18n="minutes"></span></label>
+<button id="mAdd" data-i18n="addRecord"></button>
+</div>
+</section>
+
+<section>
+<h2 data-i18n="summary"></h2>
+<div class="sum" id="sum"></div>
+</section>
+
+<section>
+<h2 data-i18n="goals"></h2>
+<div class="row"><input id="sName" maxlength="30" data-i18n-ph="subjectName"><button id="sAdd" data-i18n="addSubject"></button></div>
+<div id="subjectList"></div>
+</section>
+
+<section>
+<h2 data-i18n="history"></h2>
+<ul id="hist" class="hist"></ul>
+</section>
+</main>
+
+<script>
+const KEY='timeTrackerV1';
+const I18N={
+zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English'},
+en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文'}
+};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const todayStr=()=>ymd(new Date());
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d)}
+
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.subjects)&&Array.isArray(d.records))return d}catch(e){}return{subjects:[],records:[],lang:'zh'}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let S=load();
+const t=k=>I18N[S.lang][k];
+
+function fmt(sec){
+  const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);
+  if(sec<60)return sec+(S.lang==='zh'?' 秒':'s');
+  if(S.lang==='zh')return h?h+' 小時 '+m+' 分':m+' 分';
+  return h?h+'h '+m+'m':m+'m';
+}
+const clock=s=>pad(Math.floor(s/3600))+':'+pad(Math.floor(s%3600/60))+':'+pad(s%60);
+function doneFor(id,kind){const td=todayStr(),wk=weekStart();return S.records.reduce((a,r)=>a+(r.subjectId===id&&(kind==='d'?r.date===td:r.date>=wk)?r.seconds:0),0)}
+
+let msgTimer;
+function msg(k){$('msg').textContent=t(k);clearTimeout(msgTimer);msgTimer=setTimeout(()=>$('msg').textContent='',3000)}
+
+/* timer */
+let run=null,iv=null;
+function tick(){$('clock').textContent=clock(run?Math.floor((Date.now()-run.start)/1000):0)}
+function addRecord(id,seconds,date){S.records.push({id:uid(),subjectId:id,seconds,date,ts:Date.now()});save()}
+$('toggle').onclick=()=>{
+  if(!run){
+    const id=$('tSubject').value;if(!id)return msg('needSubject');
+    run={id,start:Date.now()};iv=setInterval(tick,500);
+  }else{
+    const sec=Math.floor((Date.now()-run.start)/1000),id=run.id;
+    clearInterval(iv);run=null;
+    if(sec>=1&&S.subjects.some(s=>s.id===id))addRecord(id,sec,todayStr());
+  }
+  tick();renderAll();
+};
+
+/* manual entry */
+$('mAdd').onclick=()=>{
+  const id=$('mSubject').value,date=$('mDate').value,h=+$('mH').value||0,m=+$('mM').value||0;
+  if(!id)return msg('needSubject');
+  if(!date)return msg('needDate');
+  const sec=Math.round(h*3600+m*60);
+  if(h<0||m<0||sec<=0)return msg('needTime');
+  addRecord(id,sec,date);$('mH').value='';$('mM').value='';renderAll();msg('added');
+};
+
+/* subjects */
+function addSubject(){
+  const n=$('sName').value.trim();if(!n)return;
+  if(S.subjects.some(s=>s.name===n))return msg('dup');
+  S.subjects.push({id:uid(),name:n,daily:0,weekly:0});$('sName').value='';save();renderAll();
+}
+$('sAdd').onclick=addSubject;
+$('sName').addEventListener('keydown',e=>{if(e.key==='Enter')addSubject()});
+$('subjectList').addEventListener('click',e=>{
+  const id=e.target.dataset.del;if(!id||!confirm(t('confirmDel')))return;
+  S.subjects=S.subjects.filter(s=>s.id!==id);
+  S.records=S.records.filter(r=>r.subjectId!==id);
+  if(run&&run.id===id){clearInterval(iv);run=null;tick()}
+  save();renderAll();
+});
+$('subjectList').addEventListener('change',e=>{
+  const k=e.target.dataset.goal;if(!k)return;
+  const s=S.subjects.find(x=>x.id===e.target.dataset.id);if(!s)return;
+  s[k]=Math.max(0,Math.round(+e.target.value||0));e.target.value=s[k]||'';save();
+  $('prog-'+s.id).innerHTML=progHtml(s);renderSummary();
+});
+$('lang').onclick=()=>{S.lang=S.lang==='zh'?'en':'zh';save();renderAll()};
+
+/* rendering */
+function progLine(label,done,goalMin){
+  const g=(goalMin||0)*60;
+  if(!g)return '<div class="pl"><span>'+label+' '+fmt(done)+'</span><span class="muted">'+t('noGoal')+'</span></div>';
+  const p=Math.round(done/g*100);
+  return '<div class="pl"><span>'+label+' '+fmt(done)+' / '+fmt(g)+'</span><span>'+p+'%</span></div><div class="bar"><i style="width:'+Math.min(100,p)+'%"></i></div>';
+}
+const progHtml=s=>progLine(t('today'),doneFor(s.id,'d'),s.daily)+progLine(t('week'),doneFor(s.id,'w'),s.weekly);
+
+function rate(kind){
+  let g=0,d=0;
+  S.subjects.forEach(s=>{const goal=(kind==='d'?s.daily:s.weekly)*60;if(!goal)return;g+=goal;d+=Math.min(doneFor(s.id,kind),goal)});
+  return g?Math.round(d/g*100)+'%':'—';
+}
+function renderSummary(){
+  const total=S.records.reduce((a,r)=>a+r.seconds,0);
+  $('sum').innerHTML='<div><span class="muted">'+t('total')+'</span><b>'+fmt(total)+'</b></div><div><span class="muted">'+t('todayRate')+'</span><b>'+rate('d')+'</b></div><div><span class="muted">'+t('weekRate')+'</span><b>'+rate('w')+'</b></div>';
+}
+function fillSelect(sel){
+  const cur=sel.value;
+  sel.innerHTML=S.subjects.length?S.subjects.map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join(''):'<option value="">'+t('pickSubject')+'</option>';
+  if(S.subjects.some(s=>s.id===cur))sel.value=cur;
+}
+function renderSubjects(){
+  const el=$('subjectList');
+  if(!S.subjects.length){el.innerHTML='<p class="muted">'+t('noSubject')+'</p>';return}
+  el.innerHTML=S.subjects.map(s=>'<div class="subj"><div class="row between"><strong>'+esc(s.name)+'</strong><button class="link" data-del="'+s.id+'">'+t('del')+'</button></div>'
+    +'<div class="row"><label>'+t('daily')+' <input type="number" min="0" step="5" value="'+(s.daily||'')+'" data-goal="daily" data-id="'+s.id+'"> '+t('min')+'</label>'
+    +'<label>'+t('weekly')+' <input type="number" min="0" step="5" value="'+(s.weekly||'')+'" data-goal="weekly" data-id="'+s.id+'"> '+t('min')+'</label></div>'
+    +'<div id="prog-'+s.id+'">'+progHtml(s)+'</div></div>').join('');
+}
+function renderHistory(){
+  const rows=[...S.records].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  const name=id=>{const s=S.subjects.find(x=>x.id===id);return s?esc(s.name):''};
+  $('hist').innerHTML=rows.length?rows.map(r=>'<li><span class="muted">'+r.date+'</span><span>'+name(r.subjectId)+'</span><span>'+fmt(r.seconds)+'</span></li>').join(''):'<li class="muted">'+t('noHistory')+'</li>';
+}
+function renderAll(){
+  document.documentElement.lang=S.lang==='zh'?'zh-Hant':'en';
+  document.title=t('title');
+  document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(e=>e.placeholder=t(e.dataset.i18nPh));
+  $('lang').textContent=t('other');
+  fillSelect($('tSubject'));fillSelect($('mSubject'));
+  $('tSubject').disabled=!!run;
+  if(run)$('tSubject').value=run.id;
+  $('toggle').textContent=run?t('stop'):t('start');
+  $('toggle').className=run?'stop':'';
+  renderSummary();renderSubjects();renderHistory();
+}
+$('mDate').value=todayStr();$('mDate').max=todayStr();
+renderAll();
+</script>
+</body>
+</html>
