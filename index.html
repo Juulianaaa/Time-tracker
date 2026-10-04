@@ -45,8 +45,11 @@ button:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 .bar{height:8px;background:var(--surface);border-radius:4px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent)}
 .hist{list-style:none;margin:0;padding:0}
-.hist li{display:grid;grid-template-columns:7.5rem 1fr auto;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
-@media(max-width:480px){.sum{grid-template-columns:1fr}.hist li{grid-template-columns:1fr auto}.hist li span:first-child{grid-column:1/-1}}
+.hist li{display:grid;grid-template-columns:7.5rem 1fr auto auto;gap:8px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.hist input{width:4.5rem;padding:4px 8px}
+.hist button{padding:4px 12px}
+button.link.accent{color:var(--accent)}
+@media(max-width:480px){.sum{grid-template-columns:1fr}.hist li{grid-template-columns:1fr auto}.hist li span:first-child,.hist .acts{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -90,8 +93,8 @@ button:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 <script>
 const KEY='timeTrackerV1';
 const I18N={
-zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English'},
-en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文'}
+zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English',edit:'編輯',save:'儲存',cancel:'取消',confirmRec:'確定要刪除這筆記錄嗎？'},
+en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文',edit:'Edit',save:'Save',cancel:'Cancel',confirmRec:'Delete this entry?'}
 };
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -167,6 +170,26 @@ $('subjectList').addEventListener('change',e=>{
 });
 $('lang').onclick=()=>{S.lang=S.lang==='zh'?'en':'zh';save();renderAll()};
 
+/* history actions */
+let editingId=null;
+$('hist').addEventListener('click',e=>{
+  const d=e.target.dataset;
+  if(d.edit){editingId=d.edit;renderHistory()}
+  else if(d.cancel){editingId=null;renderHistory()}
+  else if(d.rdel){
+    if(!confirm(t('confirmRec')))return;
+    S.records=S.records.filter(r=>r.id!==d.rdel);
+    if(editingId===d.rdel)editingId=null;
+    save();renderAll();
+  }else if(d.save){
+    const h=+$('eH').value||0,m=+$('eM').value||0,sec=Math.round(h*3600+m*60);
+    if(h<0||m<0||sec<=0)return msg('needTime');
+    const r=S.records.find(x=>x.id===d.save);
+    if(r){r.seconds=sec;save()}
+    editingId=null;renderAll();
+  }
+});
+
 /* rendering */
 function progLine(label,done,goalMin){
   const g=(goalMin||0)*60;
@@ -201,7 +224,12 @@ function renderSubjects(){
 function renderHistory(){
   const rows=[...S.records].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
   const name=id=>{const s=S.subjects.find(x=>x.id===id);return s?esc(s.name):''};
-  $('hist').innerHTML=rows.length?rows.map(r=>'<li><span class="muted">'+r.date+'</span><span>'+name(r.subjectId)+'</span><span>'+fmt(r.seconds)+'</span></li>').join(''):'<li class="muted">'+t('noHistory')+'</li>';
+  $('hist').innerHTML=rows.length?rows.map(r=>{
+    const ed=r.id===editingId,h=Math.floor(r.seconds/3600),m=Math.floor(r.seconds%3600/60);
+    const dur=ed?'<span><input type="number" id="eH" min="0" step="1" value="'+h+'"> '+t('hours')+' <input type="number" id="eM" min="0" step="1" value="'+m+'"> '+t('minutes')+'</span>':'<span>'+fmt(r.seconds)+'</span>';
+    const act=ed?'<span class="acts"><button data-save="'+r.id+'">'+t('save')+'</button> <button class="link" data-cancel="1">'+t('cancel')+'</button></span>':'<span class="acts"><button class="link accent" data-edit="'+r.id+'">'+t('edit')+'</button> <button class="link" data-rdel="'+r.id+'">'+t('del')+'</button></span>';
+    return '<li><span class="muted">'+r.date+'</span><span>'+name(r.subjectId)+'</span>'+dur+act+'</li>';
+  }).join(''):'<li class="muted">'+t('noHistory')+'</li>';
 }
 function renderAll(){
   document.documentElement.lang=S.lang==='zh'?'zh-Hant':'en';
