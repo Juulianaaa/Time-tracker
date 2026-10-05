@@ -60,7 +60,8 @@ button.link.accent{color:var(--accent)}
 <section>
 <h2 data-i18n="timer"></h2>
 <div class="row"><select id="tSubject"></select></div>
-<div class="row"><span id="clock" class="clock">00:00:00</span><button id="toggle"></button></div>
+<div class="row"><span id="clock" class="clock">00:00:00</span><button id="toggle"></button><button id="stopBtn" class="stop"></button></div>
+<div class="row"><button id="pipBtn" class="ghost" data-i18n="pip"></button></div>
 </section>
 
 <section>
@@ -93,8 +94,8 @@ button.link.accent{color:var(--accent)}
 <script>
 const KEY='timeTrackerV1';
 const I18N={
-zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English',edit:'編輯',save:'儲存',cancel:'取消',confirmRec:'確定要刪除這筆記錄嗎？'},
-en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文',edit:'Edit',save:'Save',cancel:'Cancel',confirmRec:'Delete this entry?'}
+zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English',edit:'編輯',save:'儲存',cancel:'取消',confirmRec:'確定要刪除這筆記錄嗎？',pause:'暫停',resume:'繼續',pip:'開啟浮動小視窗',pipNo:'此瀏覽器不支援浮動視窗，請改用 Chrome 或 Edge。'},
+en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文',edit:'Edit',save:'Save',cancel:'Cancel',confirmRec:'Delete this entry?',pause:'Pause',resume:'Resume',pip:'Open floating window',pipNo:'This browser does not support the floating window. Use Chrome or Edge.'}
 };
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -123,19 +124,30 @@ function msg(k){$('msg').textContent=t(k);clearTimeout(msgTimer);msgTimer=setTim
 
 /* timer */
 let run=null,iv=null;
-function tick(){$('clock').textContent=clock(run?Math.floor((Date.now()-run.start)/1000):0)}
+const elapsed=()=>run?Math.floor((run.acc+(run.seg?Date.now()-run.seg:0))/1000):0;
+function tick(){
+  const c=clock(elapsed());$('clock').textContent=c;
+  if(pip){const e=pip.document.getElementById('pc');if(e)e.textContent=c}
+}
 function addRecord(id,seconds,date){S.records.push({id:uid(),subjectId:id,seconds,date,ts:Date.now()});save()}
-$('toggle').onclick=()=>{
-  if(!run){
-    const id=$('tSubject').value;if(!id)return msg('needSubject');
-    run={id,start:Date.now()};iv=setInterval(tick,500);
-  }else{
-    const sec=Math.floor((Date.now()-run.start)/1000),id=run.id;
-    clearInterval(iv);run=null;
-    if(sec>=1&&S.subjects.some(s=>s.id===id))addRecord(id,sec,todayStr());
-  }
+function startTimer(){
+  const id=$('tSubject').value;if(!id)return msg('needSubject');
+  run={id,acc:0,seg:Date.now()};iv=setInterval(tick,500);tick();renderAll();
+}
+function pauseResume(){
+  if(!run)return startTimer();
+  if(run.seg){run.acc+=Date.now()-run.seg;run.seg=null}else run.seg=Date.now();
   tick();renderAll();
-};
+}
+function stopTimer(){
+  if(!run)return;
+  const sec=elapsed(),id=run.id;
+  clearInterval(iv);run=null;
+  if(sec>=1&&S.subjects.some(s=>s.id===id))addRecord(id,sec,todayStr());
+  tick();renderAll();
+}
+$('toggle').onclick=pauseResume;
+$('stopBtn').onclick=stopTimer;
 
 /* manual entry */
 $('mAdd').onclick=()=>{
@@ -169,6 +181,35 @@ $('subjectList').addEventListener('change',e=>{
   $('prog-'+s.id).innerHTML=progHtml(s);renderSummary();
 });
 $('lang').onclick=()=>{S.lang=S.lang==='zh'?'en':'zh';save();renderAll()};
+
+/* floating window (Document Picture-in-Picture, Chrome / Edge) */
+const PIP_W=300,PIP_H=150;      // 浮動視窗預設大小（寬、高），也可以直接用滑鼠拖曳視窗邊角調整
+const PIP_CLOCK_SIZE='1.5rem';  // 浮動視窗裡時間的字體大小，想跟其他文字一樣大就改成 '1rem'
+let pip=null;
+$('pipBtn').onclick=async()=>{
+  if(!('documentPictureInPicture' in window))return msg('pipNo');
+  if(pip){pip.close();return}
+  try{pip=await documentPictureInPicture.requestWindow({width:PIP_W,height:PIP_H})}catch(e){pip=null;return msg('pipNo')}
+  let css='';
+  [...document.styleSheets].forEach(ss=>{try{css+=[...ss.cssRules].map(r=>r.cssText).join('')}catch(e){}});
+  css+='body{margin:0;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:8px}#ps{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#pc{font-weight:700;font-variant-numeric:tabular-nums;font-size:'+PIP_CLOCK_SIZE+'}.r{display:flex;gap:8px}.r button{flex:1}';
+  const d=pip.document;
+  d.head.innerHTML='<meta charset="utf-8"><style>'+css+'</style>';
+  d.body.innerHTML='<div id="ps"></div><div id="pc"></div><div class="r"><button id="pt"></button><button id="px" class="stop"></button></div>';
+  d.getElementById('pt').onclick=pauseResume;
+  d.getElementById('px').onclick=stopTimer;
+  pip.setInterval(tick,500);
+  pip.addEventListener('pagehide',()=>{pip=null});
+  renderPip();
+};
+function renderPip(){
+  if(!pip)return;
+  const d=pip.document,s=S.subjects.find(x=>x.id===(run?run.id:$('tSubject').value));
+  d.getElementById('ps').textContent=s?s.name:t('pickSubject');
+  d.getElementById('pc').textContent=clock(elapsed());
+  d.getElementById('pt').textContent=!run?t('start'):run.seg?t('pause'):t('resume');
+  const px=d.getElementById('px');px.textContent=t('stop');px.disabled=!run;
+}
 
 /* history actions */
 let editingId=null;
@@ -240,8 +281,9 @@ function renderAll(){
   fillSelect($('tSubject'));fillSelect($('mSubject'));
   $('tSubject').disabled=!!run;
   if(run)$('tSubject').value=run.id;
-  $('toggle').textContent=run?t('stop'):t('start');
-  $('toggle').className=run?'stop':'';
+  $('toggle').textContent=!run?t('start'):run.seg?t('pause'):t('resume');
+  $('stopBtn').textContent=t('stop');$('stopBtn').disabled=!run;
+  renderPip();
   renderSummary();renderSubjects();renderHistory();
 }
 $('mDate').value=todayStr();$('mDate').max=todayStr();
