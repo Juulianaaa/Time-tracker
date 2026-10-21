@@ -18,7 +18,7 @@
 *{box-sizing:border-box}
 html{font-size:16px}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:640px;margin:0 auto;padding:24px 16px 64px}
+main{max-width:720px;margin:0 auto;padding:24px 16px 64px}
 h1,h2{font-size:1rem;font-weight:700;margin:0 0 12px}
 section{padding:20px 0;border-top:1px solid var(--line)}
 header{padding-bottom:12px}
@@ -49,6 +49,18 @@ button:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 .hist input{width:4.5rem;padding:4px 8px}
 .hist button{padding:4px 12px}
 button.link.accent{color:var(--accent)}
+input[type=color]{width:2.25rem;height:2rem;padding:2px;cursor:pointer}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.calwrap{overflow-x:auto}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,1.3fr);gap:4px;min-width:560px}
+.cal>div{min-height:4.5rem;border:1px solid var(--line);border-radius:6px;padding:4px;overflow:hidden}
+.cal>.h{min-height:0;border:0;padding:0;font-weight:700;text-align:center}
+.cal>.o{opacity:.45}
+.cal>.td{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cal>.wk{background:var(--surface)}
+.chip{display:flex;align-items:center;gap:4px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip i{width:8px;height:8px;border-radius:50%;flex:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:12px}
 @media(max-width:480px){.sum{grid-template-columns:1fr}.hist li{grid-template-columns:1fr auto}.hist li span:first-child,.hist .acts{grid-column:1/-1}}
 </style>
 </head>
@@ -80,6 +92,13 @@ button.link.accent{color:var(--accent)}
 </section>
 
 <section>
+<h2 data-i18n="calendar"></h2>
+<div class="row between"><div class="row"><button id="cPrev" class="ghost">‹</button><strong id="cLabel"></strong><button id="cNext" class="ghost">›</button></div><button id="cToday" class="ghost" data-i18n="todayBtn"></button></div>
+<div class="calwrap"><div class="cal" id="cal"></div></div>
+<div class="legend" id="cMonth"></div>
+</section>
+
+<section>
 <h2 data-i18n="goals"></h2>
 <div class="row"><input id="sName" maxlength="30" data-i18n-ph="subjectName"><button id="sAdd" data-i18n="addSubject"></button></div>
 <div id="subjectList"></div>
@@ -94,8 +113,8 @@ button.link.accent{color:var(--accent)}
 <script>
 const KEY='timeTrackerV1';
 const I18N={
-zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English',edit:'編輯',save:'儲存',cancel:'取消',confirmRec:'確定要刪除這筆記錄嗎？',pause:'暫停',resume:'繼續',pip:'開啟浮動小視窗',pipNo:'此瀏覽器不支援浮動視窗，請改用 Chrome 或 Edge。'},
-en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文',edit:'Edit',save:'Save',cancel:'Cancel',confirmRec:'Delete this entry?',pause:'Pause',resume:'Resume',pip:'Open floating window',pipNo:'This browser does not support the floating window. Use Chrome or Edge.'}
+zh:{title:'時間記錄',timer:'計時器',start:'開始',stop:'停止',manual:'手動輸入',hours:'小時',minutes:'分鐘',addRecord:'新增記錄',summary:'統計',total:'總時數',todayRate:'今日達成率',weekRate:'本週達成率',goals:'科目與目標',subjectName:'新科目名稱',addSubject:'新增科目',daily:'每日目標',weekly:'每週目標',min:'分鐘',today:'今日',week:'本週',noGoal:'未設定目標',del:'刪除',history:'歷史記錄',noSubject:'還沒有科目，請先新增一個。',noHistory:'還沒有記錄。',pickSubject:'請先新增科目',needSubject:'請先選擇科目。',needDate:'請選擇日期。',needTime:'請輸入大於 0 的時間。',dup:'已有相同名稱的科目。',added:'已新增記錄。',confirmDel:'刪除此科目會一併刪除它的所有歷史記錄，確定嗎？',other:'English',edit:'編輯',save:'儲存',cancel:'取消',confirmRec:'確定要刪除這筆記錄嗎？',pause:'暫停',resume:'繼續',pip:'開啟浮動小視窗',pipNo:'此瀏覽器不支援浮動視窗，請改用 Chrome 或 Edge。',calendar:'日曆',todayBtn:'今天',weekTotal:'週合計',monthTotal:'本月合計'},
+en:{title:'Time Tracker',timer:'Timer',start:'Start',stop:'Stop',manual:'Manual entry',hours:'hours',minutes:'minutes',addRecord:'Add entry',summary:'Summary',total:'Total time',todayRate:'Today completion',weekRate:'Week completion',goals:'Subjects and goals',subjectName:'New subject name',addSubject:'Add subject',daily:'Daily goal',weekly:'Weekly goal',min:'min',today:'Today',week:'This week',noGoal:'No goal set',del:'Delete',history:'History',noSubject:'No subjects yet. Add one first.',noHistory:'No entries yet.',pickSubject:'Add a subject first',needSubject:'Select a subject first.',needDate:'Select a date.',needTime:'Enter a time greater than 0.',dup:'A subject with this name already exists.',added:'Entry added.',confirmDel:'Deleting this subject also deletes all of its history. Continue?',other:'中文',edit:'Edit',save:'Save',cancel:'Cancel',confirmRec:'Delete this entry?',pause:'Pause',resume:'Resume',pip:'Open floating window',pipNo:'This browser does not support the floating window. Use Chrome or Edge.',calendar:'Calendar',todayBtn:'Today',weekTotal:'Week',monthTotal:'Month total'}
 };
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -108,6 +127,8 @@ function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate(
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.subjects)&&Array.isArray(d.records))return d}catch(e){}return{subjects:[],records:[],lang:'zh'}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load();
+const PALETTE=['#2f6f8f','#d9822b','#4a9a5b','#b5547a','#7a62c4','#c4a62f','#c4503f','#3f8f8a'];
+S.subjects.forEach((x,i)=>{if(!x.color)x.color=PALETTE[i%PALETTE.length]});
 const t=k=>I18N[S.lang][k];
 
 function fmt(sec){
@@ -163,7 +184,7 @@ $('mAdd').onclick=()=>{
 function addSubject(){
   const n=$('sName').value.trim();if(!n)return;
   if(S.subjects.some(s=>s.name===n))return msg('dup');
-  S.subjects.push({id:uid(),name:n,daily:0,weekly:0});$('sName').value='';save();renderAll();
+  S.subjects.push({id:uid(),name:n,daily:0,weekly:0,color:PALETTE[S.subjects.length%PALETTE.length]});$('sName').value='';save();renderAll();
 }
 $('sAdd').onclick=addSubject;
 $('sName').addEventListener('keydown',e=>{if(e.key==='Enter')addSubject()});
@@ -175,6 +196,7 @@ $('subjectList').addEventListener('click',e=>{
   save();renderAll();
 });
 $('subjectList').addEventListener('change',e=>{
+  if('color' in e.target.dataset){const c=S.subjects.find(x=>x.id===e.target.dataset.id);if(c){c.color=e.target.value;save();renderAll()}return}
   const k=e.target.dataset.goal;if(!k)return;
   const s=S.subjects.find(x=>x.id===e.target.dataset.id);if(!s)return;
   s[k]=Math.max(0,Math.round(+e.target.value||0));e.target.value=s[k]||'';save();
@@ -211,6 +233,39 @@ function renderPip(){
   const px=d.getElementById('px');px.textContent=t('stop');px.disabled=!run;
 }
 
+/* calendar */
+let calY=new Date().getFullYear(),calM=new Date().getMonth();
+const hm=sec=>{const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+':'+pad(sec>0&&!h&&!m?1:m)};
+const sumOf=o=>Object.keys(o).reduce((a,k)=>a+o[k],0);
+function chips(map){
+  return S.subjects.filter(x=>map[x.id]>0).map(x=>'<div class="chip" title="'+esc(x.name)+' '+fmt(map[x.id])+'"><i style="background:'+x.color+'"></i>'+hm(map[x.id])+'</div>').join('');
+}
+function renderCal(){
+  const by={};
+  S.records.forEach(r=>{const o=by[r.date]||(by[r.date]={});o[r.subjectId]=(o[r.subjectId]||0)+r.seconds});
+  const lead=(new Date(calY,calM,1).getDay()+6)%7,dim=new Date(calY,calM+1,0).getDate(),weeks=Math.ceil((lead+dim)/7),td=todayStr();
+  const names=S.lang==='zh'?['一','二','三','四','五','六','日']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let h=names.map(n=>'<div class="h">'+n+'</div>').join('')+'<div class="h">'+t('weekTotal')+'</div>';
+  for(let w=0;w<weeks;w++){
+    const ws={};
+    for(let i=0;i<7;i++){
+      const d=new Date(calY,calM,1-lead+w*7+i),k=ymd(d),m=by[k]||{};
+      Object.keys(m).forEach(id=>{ws[id]=(ws[id]||0)+m[id]});
+      h+='<div class="'+(d.getMonth()!==calM?'o ':'')+(k===td?'td':'')+'"><span class="muted">'+d.getDate()+'</span>'+chips(m)+'</div>';
+    }
+    const tot=sumOf(ws);
+    h+='<div class="wk"><b>'+(tot?hm(tot):'')+'</b>'+chips(ws)+'</div>';
+  }
+  $('cal').innerHTML=h;
+  $('cLabel').textContent=S.lang==='zh'?calY+' 年 '+(calM+1)+' 月':new Date(calY,calM,1).toLocaleString('en',{month:'long',year:'numeric'});
+  const ms={},pre=calY+'-'+pad(calM+1)+'-';
+  S.records.forEach(r=>{if(r.date.startsWith(pre))ms[r.subjectId]=(ms[r.subjectId]||0)+r.seconds});
+  $('cMonth').innerHTML='<b>'+t('monthTotal')+' '+fmt(sumOf(ms))+'</b>'+S.subjects.map(x=>'<div class="chip"><i style="background:'+x.color+'"></i>'+esc(x.name)+' '+fmt(ms[x.id]||0)+'</div>').join('');
+}
+$('cPrev').onclick=()=>{calM--;if(calM<0){calM=11;calY--}renderCal()};
+$('cNext').onclick=()=>{calM++;if(calM>11){calM=0;calY++}renderCal()};
+$('cToday').onclick=()=>{const n=new Date();calY=n.getFullYear();calM=n.getMonth();renderCal()};
+
 /* history actions */
 let editingId=null;
 $('hist').addEventListener('click',e=>{
@@ -232,13 +287,13 @@ $('hist').addEventListener('click',e=>{
 });
 
 /* rendering */
-function progLine(label,done,goalMin){
+function progLine(label,done,goalMin,c){
   const g=(goalMin||0)*60;
   if(!g)return '<div class="pl"><span>'+label+' '+fmt(done)+'</span><span class="muted">'+t('noGoal')+'</span></div>';
   const p=Math.round(done/g*100);
-  return '<div class="pl"><span>'+label+' '+fmt(done)+' / '+fmt(g)+'</span><span>'+p+'%</span></div><div class="bar"><i style="width:'+Math.min(100,p)+'%"></i></div>';
+  return '<div class="pl"><span>'+label+' '+fmt(done)+' / '+fmt(g)+'</span><span>'+p+'%</span></div><div class="bar"><i style="width:'+Math.min(100,p)+'%;background:'+(c||'')+'"></i></div>';
 }
-const progHtml=s=>progLine(t('today'),doneFor(s.id,'d'),s.daily)+progLine(t('week'),doneFor(s.id,'w'),s.weekly);
+const progHtml=s=>progLine(t('today'),doneFor(s.id,'d'),s.daily,s.color)+progLine(t('week'),doneFor(s.id,'w'),s.weekly,s.color);
 
 function rate(kind){
   let g=0,d=0;
@@ -257,14 +312,14 @@ function fillSelect(sel){
 function renderSubjects(){
   const el=$('subjectList');
   if(!S.subjects.length){el.innerHTML='<p class="muted">'+t('noSubject')+'</p>';return}
-  el.innerHTML=S.subjects.map(s=>'<div class="subj"><div class="row between"><strong>'+esc(s.name)+'</strong><button class="link" data-del="'+s.id+'">'+t('del')+'</button></div>'
+  el.innerHTML=S.subjects.map(s=>'<div class="subj"><div class="row between"><label class="row" style="margin:0"><input type="color" value="'+s.color+'" data-color data-id="'+s.id+'" aria-label="color"><strong>'+esc(s.name)+'</strong></label><button class="link" data-del="'+s.id+'">'+t('del')+'</button></div>'
     +'<div class="row"><label>'+t('daily')+' <input type="number" min="0" step="5" value="'+(s.daily||'')+'" data-goal="daily" data-id="'+s.id+'"> '+t('min')+'</label>'
     +'<label>'+t('weekly')+' <input type="number" min="0" step="5" value="'+(s.weekly||'')+'" data-goal="weekly" data-id="'+s.id+'"> '+t('min')+'</label></div>'
     +'<div id="prog-'+s.id+'">'+progHtml(s)+'</div></div>').join('');
 }
 function renderHistory(){
   const rows=[...S.records].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
-  const name=id=>{const s=S.subjects.find(x=>x.id===id);return s?esc(s.name):''};
+  const name=id=>{const s=S.subjects.find(x=>x.id===id);return s?'<i class="dot" style="background:'+s.color+'"></i>'+esc(s.name):''};
   $('hist').innerHTML=rows.length?rows.map(r=>{
     const ed=r.id===editingId,h=Math.floor(r.seconds/3600),m=Math.floor(r.seconds%3600/60);
     const dur=ed?'<span><input type="number" id="eH" min="0" step="1" value="'+h+'"> '+t('hours')+' <input type="number" id="eM" min="0" step="1" value="'+m+'"> '+t('minutes')+'</span>':'<span>'+fmt(r.seconds)+'</span>';
@@ -284,7 +339,7 @@ function renderAll(){
   $('toggle').textContent=!run?t('start'):run.seg?t('pause'):t('resume');
   $('stopBtn').textContent=t('stop');$('stopBtn').disabled=!run;
   renderPip();
-  renderSummary();renderSubjects();renderHistory();
+  renderSummary();renderSubjects();renderHistory();renderCal();
 }
 $('mDate').value=todayStr();$('mDate').max=todayStr();
 renderAll();
